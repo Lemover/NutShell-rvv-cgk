@@ -55,9 +55,10 @@ EMU_VSRC_DIR = $(abspath ./src/test/vsrc)
 EMU_CXXFILES = $(shell find $(EMU_CSRC_DIR) -name "*.cpp")
 EMU_VFILES = $(shell find $(EMU_VSRC_DIR) -name "*.v" -or -name "*.sv")
 
-EMU_CXXFLAGS  = -O3 -std=c++11 -static -g -Wall -I$(EMU_CSRC_DIR)
+EMU_CXXFLAGS  = -O3 -std=c++11 -static -g -Wall -I$(EMU_CSRC_DIR) -lSDL2 -I/usr/include/SDL2
 EMU_CXXFLAGS += -DVERILATOR -Wno-maybe-uninitialized -D__RV$(DATAWIDTH)__
-EMU_LDFLAGS   = -lpthread -lSDL2 -ldl
+EMU_CPPFLAGS = -DREF_SO=$(REF_SO) -I/usr/include/SDL2
+EMU_LDFLAGS   = -lpthread -lSDL2 -I/usr/include/SDL2 -ldl
 
 # dump vcd: --debug --trace
 # +define+RANDOMIZE_REG_INIT \
@@ -85,15 +86,15 @@ $(EMU_MK): $(SIM_TOP_V) | $(EMU_DEPS)
 		-o $(abspath $(EMU)) -Mdir $(@D) $^ $(EMU_DEPS)
 
 ifeq ($(USE_READY_TO_RUN_NEMU),true)
-REF_SO := ./ready-to-run/riscv$(DATAWIDTH)-nemu-interpreter-so
+REF_SO := \\\"$(abspath ./ready-to-run/riscv$(DATAWIDTH)-nemu-interpreter-so)\\\"
 else
-REF_SO := $(NEMU_HOME)/build/riscv$(DATAWIDTH)-nemu-interpreter-so
+REF_SO := "$(NEMU_HOME)/build/riscv$(DATAWIDTH)-nemu-interpreter-so"
 $(REF_SO):
 	$(MAKE) -C $(NEMU_HOME) ISA=riscv$(DATAWIDTH) SHARE=1
 endif
 
 $(EMU): $(EMU_MK) $(EMU_DEPS) $(EMU_HEADERS) $(REF_SO)
-	CPPFLAGS=-DREF_SO=\\\"$(REF_SO)\\\" $(MAKE) VM_PARALLEL_BUILDS=1 -C $(dir $(EMU_MK)) -f $(abspath $(EMU_MK))
+	CPPFLAGS="$(EMU_CPPFLAGS)" $(MAKE) VM_PARALLEL_BUILDS=1 -C $(dir $(EMU_MK)) -f $(abspath $(EMU_MK))
 
 SEED = -s $(shell seq 1 10000 | shuf | head -n 1)
 
